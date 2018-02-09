@@ -31,6 +31,7 @@
 #include "fusefs_hfs.h"
 #include "log.h"
 #include "macbin.h"
+#include "macbinin.h"
 
 
 //#define DEBUG
@@ -160,6 +161,7 @@ static int EndsWithTail(const char *url, const char* tail)
 
 #define kHFSFile 1
 #define kMacBinaryFile  2
+#define kMacBinaryWrite 3
 
 struct fusehfs_file{
    int type;
@@ -465,6 +467,7 @@ static int FuseHFS_create(const char *path, mode_t mode, struct fuse_file_info *
                 struct  fusehfs_file *fusefile =  fuse_open(NULL,hfspath);
 	        if ( fusefile && fusefile->hfs_file)
                 {
+                    fusefile->type=kMacBinaryWrite;
 		    fi->fh = (uint64_t)fusefile;
 		    free(hfspath);
 		    return 0;
@@ -596,12 +599,22 @@ static int FuseHFS_write(const char *path, const char *buf, size_t size,
 	       hfs_seek(file, offset, SEEK_SET);
 	       return (hfs_write(file, buf, size));
             }
-            else if (fusefile->type==kMacBinaryFile && fusefile->ptr)
+            else if (fusefile->type==kMacBinaryWrite )
             {
+               if (!fusefile->ptr)
+               {
+                  fusefile->ptr=calloc(size+offset,1);
+                  fusefile->ptr_size=size+offset;
+               }
+               if (fusefile->ptr_size<size+offset)
+               {
+                  fusefile->ptr=realloc(fusefile->ptr,size+offset);
+                  fusefile->ptr_size=size+offset;
+               }
                fprintf(stderr,"write(macbinary): %s size %d offset %d\n",path,size,offset);
                // find the right spot in memory, and return it
                // need to realloc
-               //memcpy(fusefile->ptr+offset,buf,size);
+               memcpy(fusefile->ptr+offset,buf,size);
                return size;
             }
         }
@@ -628,10 +641,20 @@ static int FuseHFS_flush(const char *path, struct fuse_file_info *fi) {
 }
 
 static int FuseHFS_release(const char *path, struct fuse_file_info *fi) {
+        char new_path[4096];
+
 	dprintf("close %s\n", path);
+
+        strcpy(new_path,path);
+        if (EndsWithTail(path,".bin"))
+        {
+           fprintf(stderr,"release remove .bin");
+           new_path[strlen(path)-4]=0;
+           fprintf(stderr,"[%s][%s]\n",path,new_path);
+        }
 	
 	// convert to hfs path
-	char *hfspath = mkhfspath(path);
+	char *hfspath = mkhfspath(new_path);
 	if (hfspath == NULL) return -ENOENT;
 
 	if (fi && fi->fh)
@@ -642,6 +665,12 @@ static int FuseHFS_release(const char *path, struct fuse_file_info *fi) {
 	       hfsfile *file = fusefile->hfs_file;
 	       hfs_setfork(file, 0);
 	       hfs_close(file);
+            }
+            else if (fusefile->type==kMacBinaryWrite && fusefile->ptr)
+            {
+               fprintf(stderr,"FuseHFS_release: type==kMacBinaryWrite\n");
+               int result = cpi_macb_data(NULL,hfspath,fusefile->ptr);
+               free(fusefile->ptr);
             }
             else if (fusefile->type==kMacBinaryFile && fusefile->ptr)
             {
