@@ -24,5 +24,6 @@ $(TARGET): $(OBJECTS)
 	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
 
 clean:
+	cd hfsutils-3.2.6 && $(MAKE) clean
 	-rm -f *.o
 	-rm -f $(TARGET)
