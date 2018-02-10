@@ -1,4 +1,4 @@
-=== LinuxFuseHFS
+### LinuxFuseHFS
 
 This project is a slight rewrite of this great project:
 https://github.com/thejoelpatrol/fusehfs
@@ -7,15 +7,15 @@ I didn't fork it, because this version is meant to run on linux, and not on maco
 
 Eventually I would like to treat text files, and other special files in a smart way, ie: if we have TEXT as a filetype, we can put a .txt on the end of the filename, etc.
 
-== Usage
+## Usage
 
 `
-./fusehfs `pwd`/boot.vhd mountdir
+./fusehfs ``pwd``/boot.vhd mountdir
 `
 
 keep it in the foreground thread, great for debugging:
 `
-./fusehfs --debug `pwd`/boot.vhd mountdir
+./fusehfs --debug boot.vhd mountdir
 `
 
 Note: fusehfs doesn't do good things if the vhd/dsk file is not specified with a full path in non debug mode. In debug mode the current directory path works. We whould fix this.
