@@ -45,14 +45,14 @@ int dup(int);
 # include "binhex.h"
 # include "crc.h"
 # include "libhfs/apple.h"
-//# include "data.h"
+# include "libhfs/data.h"
 
 const char *cpi_error = "no error";
 
 extern int errno;
 
-//# define ERROR(code, str)	(cpi_error = (str), errno = (code))
-# define ERROR(code, str)	fprintf(stderr,"cpi error: %d %s\n",(code),(str))
+# define ERROR(code, str)	(cpi_error = (str), errno = (code))
+//# define ERROR(code, str)	fprintf(stderr,"cpi error: %d %s\n",(code),(str))
 
 # define MACB_BLOCKSZ	128
 
@@ -61,84 +61,6 @@ extern int errno;
 
 # define RAW_TYPE	"????"
 # define RAW_CREA	"UNIX"
-
-/* Copy routines =========================================================== */
-
-/*
- * NAME:	fork->macb()
- * DESCRIPTION:	copy a single fork for MacBinary II
- */
-static
-int fork_macb(int ifile, hfsfile *ofile, unsigned long size)
-{
-  char buf[HFS_BLOCKSZ * 4];
-  unsigned long chunk, bytes;
-
-  while (size)
-    {
-      chunk = (size < sizeof(buf)) ?
-	(size + (MACB_BLOCKSZ - 1)) & ~(MACB_BLOCKSZ - 1) : sizeof(buf);
-
-      bytes = read(ifile, buf, chunk);
-      if (bytes == (unsigned long) -1)
-	{
-	  ERROR(errno, "error reading data");
-	  return -1;
-	}
-      else if (bytes != chunk)
-	{
-	  ERROR(EIO, "read incomplete chunk");
-	  return -1;
-	}
-
-      chunk = (size > bytes) ? bytes : size;
-
-      bytes = hfs_write(ofile, buf, chunk);
-      if (bytes == (unsigned long) -1)
-	{
-	  ERROR(errno, hfs_error);
-	  return -1;
-	}
-      else if (bytes != chunk)
-	{
-	  ERROR(EIO, "wrote incomplete chunk");
-	  return -1;
-	}
-
-      size -= chunk;
-    }
-
-  return 0;
-}
-
-/*
- * NAME:	do_macb()
- * DESCRIPTION:	perform copy using MacBinary II translation
- */
-static
-int do_macb(int ifile, hfsfile *ofile,
-	    unsigned long dsize, unsigned long rsize)
-{
-  if (hfs_setfork(ofile, 0) == -1)
-    {
-      ERROR(errno, hfs_error);
-      return -1;
-    }
-
-  if (fork_macb(ifile, ofile, dsize) == -1)
-    return -1;
-
-  if (hfs_setfork(ofile, 1) == -1)
-    {
-      ERROR(errno, hfs_error);
-      return -1;
-    }
-
-  if (fork_macb(ifile, ofile, rsize) == -1)
-    return -1;
-
-  return 0;
-}
 
 
 /*
@@ -211,12 +133,11 @@ int cpi_macb_data(hfsvol *vol, const char *dstname, const char *data)
   unsigned char buf[MACB_BLOCKSZ];
   unsigned short crc;
   unsigned long dsize, rsize;
-  void *ptr = data;
+  const void *ptr = data;
   int bytes;
   memcpy(buf,ptr,MACB_BLOCKSZ);
   ptr+=MACB_BLOCKSZ;
 
-  fprintf(stderr,"cpi_macb_data %d %s \n",vol,dstname);
 
   if (buf[0] != 0 || buf[74] != 0)
     {
@@ -267,7 +188,6 @@ int cpi_macb_data(hfsvol *vol, const char *dstname, const char *data)
   memcpy(creator, &buf[69], 4);
   type[4] = creator[4] = 0;
 
-  fprintf(stderr,"cpi_macb_data %d %s %s %s %s\n",vol,dstname,type,creator,dsthint);
   ofile = opendst(vol, dstname, dsthint, type, creator);
   if (ofile == 0)
     {
@@ -281,7 +201,6 @@ int cpi_macb_data(hfsvol *vol, const char *dstname, const char *data)
       ERROR(errno, hfs_error);
       return -1;
     }
-      fprintf(stderr,"before write: %d\n",dsize);
   bytes = hfs_write(ofile, ptr, dsize);
   ptr+=dsize;
   if (bytes == -1)
@@ -299,7 +218,6 @@ int cpi_macb_data(hfsvol *vol, const char *dstname, const char *data)
       ERROR(errno, hfs_error);
       return -1;
     }
-      fprintf(stderr,"before write: %d\n",rsize);
   bytes = hfs_write(ofile, ptr, rsize);
   ptr+=dsize;
   if (bytes == -1)
