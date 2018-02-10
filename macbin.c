@@ -67,7 +67,6 @@ int do_macb(hfsfile *ifile, void *outputbuf)
 {
   hfsdirent ent;
   unsigned char buf[MACB_BLOCKSZ];
-  long bytes;
   void *pos = outputbuf;
 
   if (hfs_fstat(ifile, &ent) == -1)
@@ -113,7 +112,7 @@ int do_macb(hfsfile *ifile, void *outputbuf)
 	  return -1;
 	}
   pos+=ent.u.file.dsize;
-  fprintf(stderr,"data fork: %d\n",ent.u.file.dsize);
+  //fprintf(stderr,"data fork: %ld\n",ent.u.file.dsize);
 
   if (hfs_setfork(ifile, 1) == -1)
     {
@@ -127,7 +126,7 @@ int do_macb(hfsfile *ifile, void *outputbuf)
 	  ERROR(errno, hfs_error);
 	  return -1;
 	}
-  fprintf(stderr,"rsrc fork: %d\n",ent.u.file.rsize);
+  //fprintf(stderr,"rsrc fork: %ld\n",ent.u.file.rsize);
 
   return 0;
 }
