@@ -510,6 +510,7 @@ static int FuseHFS_open(const char *path, struct fuse_file_info *fi) {
                //FILE *tempfile = fopen("test.bin","wb");
                //fwrite(fusefile->ptr,fusefile->ptr_size,1,tempfile);
                //fclose(tempfile);
+	       free(hfspath);
                hfs_close(file);
                return res;
            }

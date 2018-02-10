@@ -55,6 +55,7 @@ void log_invoking_command(int argc, char *argv[]) {
 
 void log_fuse_call(struct fuse_args *args) {
     char buf[1024];
+    buf[0]=0;
     for (int i = 0; i < args->argc; i++) {
         if (strlen(buf) + strlen(args->argv[i]) + 1 <= 1024) {
             strcat(buf, args->argv[i]);
