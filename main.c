@@ -9,7 +9,7 @@
  * Still licensed under GPLv2: https://www.gnu.org/licenses/gpl-2.0.html
  */
 #define FUSE_USE_VERSION 31
-#define DEBUG 1
+#define DEBUG 0
 
 #include <fuse/fuse.h>
 #include <stdlib.h>
@@ -34,7 +34,8 @@ extern void log_fuse_call(struct fuse_args *args);
 struct fusehfs_options options = {
     .path =         NULL,
     .encoding =		NULL,
-	.readonly =		0
+	.readonly =		0,
+	.debug =		0
 };
 
 enum {
@@ -42,6 +43,7 @@ enum {
 	KEY_HELP,
 	KEY_ENCODING,
 	KEY_READONLY,
+	KEY_DEBUG,
 };
 
 static struct fuse_opt FuseHFS_opts[] = {
@@ -51,6 +53,7 @@ static struct fuse_opt FuseHFS_opts[] = {
 	FUSE_OPT_KEY("--help",		KEY_HELP),
 	FUSE_OPT_KEY("--encoding=",	KEY_ENCODING),
 	FUSE_OPT_KEY("--readonly",	KEY_READONLY),
+	FUSE_OPT_KEY("--debug",	KEY_DEBUG),
 	FUSE_OPT_END
 };
 
@@ -75,7 +78,10 @@ static int FuseHFS_opt_proc(void *data, const char *arg, int key, struct fuse_ar
 			printf("usage: fusefs_hfs [fuse options] device mountpoint\n");
 			exit(0);
 		case KEY_READONLY:
-			options.readonly = 1;
+			options.readonly =1;
+			return 0;
+		case KEY_DEBUG:
+			options.debug= 1;
 			return 0;
 	}
 	return 0;
@@ -166,10 +172,13 @@ int main(int argc, char* argv[], char* envp[], char** exec_path) {
     strcpy(fsnameOption, "-ofsname=");
     strcat(fsnameOption, options.path);
     fuse_opt_add_arg(&args, fsnameOption);
-    //free(fsnameOption);
+    free(fsnameOption);
     //fuse_opt_add_arg(&args, "-debug");
-    fuse_opt_add_arg(&args, "-d");
-    fuse_opt_add_arg(&args, "-f");
+    if (options.debug)
+    {
+       fuse_opt_add_arg(&args, "-f");
+       fuse_opt_add_arg(&args, "-d");
+    }
     //fuse_opt_add_arg(&args, "-olocal"); // experimental option. See: https://code.google.com/p/macfuse/wiki/OPTIONS
      
 	// run fuse
