@@ -142,7 +142,7 @@ static int dirent_to_stbuf(const hfsdirent *ent, struct stat *stbuf) {
 		stbuf->st_size = ent->u.file.dsize;
 		if (ent->u.file.rsize)
 		   stbuf->st_size = ent->u.file.dsize+ent->u.file.rsize+MACB_BLOCKSZ;
-                fprintf(stderr,"get attr size: [%d]\n",stbuf->st_size);
+                fprintf(stderr,"get attr size: [%ld]\n",stbuf->st_size);
 	}
 	return 0;
 }
@@ -263,7 +263,7 @@ static int FuseHFS_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                 } else {
                   if (ent.u.file.rsize!=0)
                   {
-                     fprintf(stderr,"%s data %d resource %d [%s][%s]\n",dname,ent.u.file.dsize,ent.u.file.rsize,ent.u.file.type,ent.u.file.creator);
+                     fprintf(stderr,"%s data %ld resource %ld [%s][%s]\n",dname,ent.u.file.dsize,ent.u.file.rsize,ent.u.file.type,ent.u.file.creator);
                      strcat(dname,".bin");
                   }
                 }
@@ -440,7 +440,6 @@ static int FuseHFS_rename(const char *from, const char *to) {
 
 static int FuseHFS_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
         char new_path[4096];
-        int isMacBinary = 0;
 	dprintf("create %s\n", path);
 	if (_readonly) return -EPERM;
 	
@@ -452,7 +451,6 @@ static int FuseHFS_create(const char *path, mode_t mode, struct fuse_file_info *
            fprintf(stderr,"create remove .bin");
            new_path[strlen(path)-4]=0;
            fprintf(stderr,"[%s][%s]\n",path,new_path);
-           isMacBinary = 1;
            // we want to create the file in memory, and not write it out yet?  
         }
 	// convert to hfs path
@@ -472,10 +470,6 @@ static int FuseHFS_create(const char *path, mode_t mode, struct fuse_file_info *
 		    free(hfspath);
 		    return 0;
 	        }
-                //if (isMacBinary)
-                
-		//file = hfs_open(NULL, hfspath);
-		//fi->fh = (uint64_t)file;
 	}
 	
 	free(hfspath);
@@ -501,14 +495,13 @@ static int FuseHFS_open(const char *path, struct fuse_file_info *fi) {
 	   // open file
            fprintf(stderr,"hfs path [%s]\n",hfspath);
 	   hfsfile *file = hfs_open(NULL,hfspath);
-           fprintf(stderr,"hfs_open returned %d\n",file);
            if (file)
            {
            struct  fusehfs_file *fusefile =  calloc(sizeof(struct fusehfs_file),1);
 	   hfsdirent ent;
 	   if (hfs_fstat(file, &ent) == 0) {
                fusefile->ptr_size=ent.u.file.dsize+ent.u.file.rsize+MACB_BLOCKSZ;
-               fprintf(stderr,"allocating %d\n",fusefile->ptr_size);
+               fprintf(stderr,"allocating %ld\n",fusefile->ptr_size);
                fusefile->ptr=calloc(1,fusefile->ptr_size);
                fusefile->type=kMacBinaryFile;
 	       fi->fh = (uint64_t)fusefile;
@@ -536,7 +529,6 @@ static int FuseHFS_open(const char *path, struct fuse_file_info *fi) {
 	if (hfspath == NULL) return -ENOENT;
 	
 	// open file
-	hfsfile *file = NULL;
         struct  fusehfs_file *fusefile =  fuse_open(NULL,hfspath);
 	if ( fusefile && fusefile->hfs_file)
         {
@@ -567,12 +559,12 @@ static int FuseHFS_read(const char *path, char *buf, size_t size, off_t offset,
             }
             else if (fusefile->type==kMacBinaryFile && fusefile->ptr)
             {
-               fprintf(stderr,"FuseHFS_read %s size %d offset %d\n",path,size,offset);
+               fprintf(stderr,"FuseHFS_read %s size %ld offset %ld\n",path,size,offset);
                // find the right spot in memory, and return it
                int actualsize=size;
                if (offset+size>fusefile->ptr_size)
                   actualsize-=((offset+size)-fusefile->ptr_size);
-               fprintf(stderr,"FuseHFS_read %s size %d offset %d actualsize %d\n",path,size,offset,actualsize);
+               fprintf(stderr,"FuseHFS_read %s size %ld offset %ld actualsize %d\n",path,size,offset,actualsize);
                
                memcpy(buf,fusefile->ptr+offset,actualsize);
                return actualsize;
@@ -584,16 +576,15 @@ static int FuseHFS_read(const char *path, char *buf, size_t size, off_t offset,
 static int FuseHFS_write(const char *path, const char *buf, size_t size,
                off_t offset, struct fuse_file_info *fi) {
 	dprintf("write %s\n", path);
-        fprintf(stderr,"write: %s size %d offset %d\n",path,size,offset);
+        fprintf(stderr,"write: %s size %ld offset %ld\n",path,size,offset);
 	if (_readonly) return -EPERM;
-	fprintf(stderr,"write: fi %d fi->fh %d\n",fi,fi?fi->fh:0);
 	if (fi && fi->fh)
         {
             struct fusehfs_file *fusefile = (struct fusehfs_file *) fi->fh;
 	    fprintf(stderr,"write: type: %d\n",fusefile->type);
             if (fusefile->type==kHFSFile)
             {
-               fprintf(stderr,"write(hfsfile): %s size %d offset %d\n",path,size,offset);
+               fprintf(stderr,"write(hfsfile): %s size %ld offset %ld\n",path,size,offset);
 	       hfsfile *file = fusefile->hfs_file;
 	       hfs_setfork(file, 0);
 	       hfs_seek(file, offset, SEEK_SET);
@@ -611,7 +602,7 @@ static int FuseHFS_write(const char *path, const char *buf, size_t size,
                   fusefile->ptr=realloc(fusefile->ptr,size+offset);
                   fusefile->ptr_size=size+offset;
                }
-               fprintf(stderr,"write(macbinary): %s size %d offset %d\n",path,size,offset);
+               fprintf(stderr,"write(macbinary): %s size %ld offset %ld\n",path,size,offset);
                // find the right spot in memory, and return it
                // need to realloc
                memcpy(fusefile->ptr+offset,buf,size);
@@ -670,6 +661,7 @@ static int FuseHFS_release(const char *path, struct fuse_file_info *fi) {
             {
                fprintf(stderr,"FuseHFS_release: type==kMacBinaryWrite\n");
                int result = cpi_macb_data(NULL,hfspath,fusefile->ptr);
+               fprintf(stderr,"FuseHFS_release: result:%d\n",result);
                free(fusefile->ptr);
             }
             else if (fusefile->type==kMacBinaryFile && fusefile->ptr)
@@ -679,7 +671,7 @@ static int FuseHFS_release(const char *path, struct fuse_file_info *fi) {
             }
             // why does this cause it to crash?
             free(fusefile);
-            fi->fh=NULL;
+            fi->fh=(uint64_t) 0;
         }	
 	free(hfspath);
 	return 0;
@@ -1217,7 +1209,7 @@ struct fuse_operations FuseHFS_operations = {
 	.read        = FuseHFS_read,
 	.write       = FuseHFS_write,
 	.statfs      = FuseHFS_statfs,
-	//.flush       = FuseHFS_flush,
+	.flush       = FuseHFS_flush,
 	.release     = FuseHFS_release,
 	//.fsync       = FuseHFS_fsync,
 #ifdef HAVE_SETXATTR
