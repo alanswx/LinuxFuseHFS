@@ -9,7 +9,6 @@
  * Still licensed under GPLv2: https://www.gnu.org/licenses/gpl-2.0.html
  */
 #define FUSE_USE_VERSION 31
-#define DEBUG 0
 
 #include <fuse/fuse.h>
 #include <stdlib.h>
