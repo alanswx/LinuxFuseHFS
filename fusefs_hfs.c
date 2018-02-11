@@ -34,7 +34,7 @@
 #include "macbinin.h"
 
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define dprintf(args...) printf(args)
@@ -327,11 +327,20 @@ static int FuseHFS_mkdir(const char *path, mode_t mode) {
 }
 
 static int FuseHFS_unlink(const char *path) {
+        char new_path[4096];
 	dprintf("unlink %s\n", path);
 	if (_readonly) return -EPERM;
 	
+        strcpy(new_path,path);
+        if (EndsWithTail(path,".bin"))
+        {
+           dprintf("remove .bin");
+           new_path[strlen(path)-4]=0;
+          dprintf("[%s][%s]\n",path,new_path);
+           
+        }
 	// convert to hfs path
-	char *hfspath = mkhfspath(path);
+	char *hfspath = mkhfspath(new_path);
 	if (hfspath == NULL) return -ENOENT;
 	
 	// check that file exists
